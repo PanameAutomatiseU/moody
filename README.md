@@ -2,6 +2,8 @@
 
 **Votre trajet à Paris, selon votre humeur.**
 
+🔗 **Démo en ligne : https://moody-mauve.vercel.app** · Code : https://github.com/PanameAutomatiseU/moody
+
 Moody génère des itinéraires parisiens **multimodaux** (métro, RER, Vélib’, marche)
 qui s'adaptent à votre **mood** du moment. Pas juste « le plus rapide » : le plus
 *zen*, le plus *sportif*, le plus *flâneur* ou le plus *économe*.

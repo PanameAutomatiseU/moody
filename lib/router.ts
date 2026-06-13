@@ -241,11 +241,20 @@ function genSingleLinePlusVelib(o: Place, d: Place, ctx: PlanCtx): Leg[][] {
 // Assembly & scoring
 // ---------------------------------------------------------------------------
 
-function assemble(rawLegs: Leg[], kind: string, mood: Mood, o: Place, d: Place): Itinerary | null {
-  // Drop negligible walk hops (e.g. origin already at the Vélib/metro point).
-  const legs = rawLegs.filter((l) => !(l.mode === "walk" && l.distanceM < 45));
-  if (legs.length === 0) return null;
+interface Aggregate {
+  walkMin: number;
+  bikeMin: number;
+  transitMin: number;
+  durationMin: number;
+  distanceM: number;
+  transfers: number;
+  transitKm: number;
+  linesUsed: LineInfo[];
+  costEuro: number;
+  co2g: number;
+}
 
+function aggregate(legs: Leg[]): Aggregate {
   let walkMin = 0;
   let bikeMin = 0;
   let transitMin = 0;
@@ -268,8 +277,6 @@ function assemble(rawLegs: Leg[], kind: string, mood: Mood, o: Place, d: Place):
     }
   }
 
-  const durationMin = walkMin + bikeMin + transitMin;
-
   // Ticketing: one ticket per maximal run of consecutive transit legs.
   let sessions = 0;
   let inTransit = false;
@@ -279,63 +286,104 @@ function assemble(rawLegs: Leg[], kind: string, mood: Mood, o: Place, d: Place):
     inTransit = isTransit;
   }
   const velibRides = legs.filter((l) => l.mode === "velib").length;
-  const costEuro = sessions * TICKET_EURO + velibRides * VELIB_TRIP_EURO;
 
-  const co2g = transitKm * METRO_CO2_PER_KM;
-  const carCo2g = ((haversineM(o, d) * 1.4) / 1000) * CAR_CO2_PER_KM;
+  return {
+    walkMin,
+    bikeMin,
+    transitMin,
+    durationMin: walkMin + bikeMin + transitMin,
+    distanceM,
+    transfers,
+    transitKm,
+    linesUsed,
+    costEuro: sessions * TICKET_EURO + velibRides * VELIB_TRIP_EURO,
+    co2g: transitKm * METRO_CO2_PER_KM,
+  };
+}
 
-  const hasVelib = bikeMin > 0;
+export function scoreItinerary(a: Aggregate, mood: Mood): number {
+  const w = mood.weights;
+  return (
+    w.time * a.durationMin +
+    w.transfer * a.transfers +
+    w.walk * a.walkMin +
+    w.bike * a.bikeMin +
+    w.underground * a.transitMin +
+    w.money * a.costEuro
+  );
+}
+
+function summarize(a: Aggregate, legs: Leg[]): { summary: string; tags: string[] } {
+  const hasVelib = a.bikeMin > 0;
   const transitLegCount = legs.filter((l) => l.mode === "metro" || l.mode === "rer").length;
+  const { linesUsed, transfers, costEuro, durationMin } = a;
 
-  // Summary
   let summary: string;
   if (transitLegCount === 0 && hasVelib) summary = "Vélib intégral";
   else if (transitLegCount === 0) summary = "À pied";
-  else {
-    const labels = linesUsed.map((l) => (l.mode === "rer" ? `RER ${l.label}` : `Ligne ${l.label}`));
-    if (linesUsed.length === 1) {
-      summary = labels[0] + (hasVelib ? " + Vélib" : transfers === 0 ? " directe" : "");
-    } else {
-      summary = linesUsed.map((l) => (l.mode === "rer" ? `RER ${l.label}` : l.label)).join(" → ") + (hasVelib ? " + Vélib" : "");
-    }
+  else if (linesUsed.length === 1) {
+    const l = linesUsed[0];
+    const base = l.mode === "rer" ? `RER ${l.label}` : `Ligne ${l.label}`;
+    summary = base + (hasVelib ? " + Vélib" : transfers === 0 ? " directe" : "");
+  } else {
+    summary =
+      linesUsed.map((l) => (l.mode === "rer" ? `RER ${l.label}` : l.label)).join(" → ") +
+      (hasVelib ? " + Vélib" : "");
   }
 
-  // Tags
   const tags: string[] = [];
   if (linesUsed.length === 1 && transfers === 0) tags.push("1 seule ligne");
   if (transfers === 0 && transitLegCount > 0) tags.push("Zéro correspondance");
   if (hasVelib) tags.push("Vélib");
-  if (walkMin + bikeMin > transitMin && transitLegCount > 0) tags.push("Grand air");
+  if (a.walkMin + a.bikeMin > a.transitMin && transitLegCount > 0) tags.push("Grand air");
   if (transitLegCount === 0 && hasVelib) tags.push("100% à vélo");
   if (costEuro === 0 && durationMin > 0) tags.push("Gratuit");
 
-  const w = mood.weights;
-  const score =
-    w.time * durationMin +
-    w.transfer * transfers +
-    w.walk * walkMin +
-    w.bike * bikeMin +
-    w.underground * transitMin +
-    w.money * costEuro;
+  return { summary, tags };
+}
+
+function composeItinerary(
+  rawLegs: Leg[],
+  kind: string,
+  mood: Mood,
+  carCo2g: number,
+): Itinerary | null {
+  // Drop negligible walk hops (e.g. origin already at the Vélib/metro point).
+  const legs = rawLegs.filter((l) => !(l.mode === "walk" && l.distanceM < 45));
+  if (legs.length === 0) return null;
+
+  const a = aggregate(legs);
+  const { summary, tags } = summarize(a, legs);
 
   return {
-    id: `${kind}-${Math.round(durationMin)}-${linesUsed.map((l) => l.id).join("")}-${Math.round(walkMin + bikeMin)}`,
+    id: `${kind}-${Math.round(a.durationMin)}-${a.linesUsed.map((l) => l.id).join("")}-${Math.round(a.walkMin + a.bikeMin)}`,
     legs,
-    durationMin,
-    walkMin,
-    bikeMin,
-    transitMin,
-    transfers,
-    linesUsed,
-    distanceM,
-    costEuro,
-    co2g,
+    durationMin: a.durationMin,
+    walkMin: a.walkMin,
+    bikeMin: a.bikeMin,
+    transitMin: a.transitMin,
+    transfers: a.transfers,
+    linesUsed: a.linesUsed,
+    distanceM: a.distanceM,
+    costEuro: a.costEuro,
+    co2g: a.co2g,
     carCo2g,
     summary,
     tags,
-    score,
+    score: scoreItinerary(a, mood),
     kind,
   };
+}
+
+function assemble(rawLegs: Leg[], kind: string, mood: Mood, o: Place, d: Place): Itinerary | null {
+  const carCo2g = ((haversineM(o, d) * 1.4) / 1000) * CAR_CO2_PER_KM;
+  return composeItinerary(rawLegs, kind, mood, carCo2g);
+}
+
+/** Recompute an itinerary's metrics & score from its (possibly ORS-enriched) legs,
+ *  preserving the car-CO2 baseline and kind. */
+export function recomposeItinerary(it: Itinerary, moodId: MoodId): Itinerary {
+  return composeItinerary(it.legs, it.kind, MOODS[moodId], it.carCo2g) ?? it;
 }
 
 function dedupe(items: Itinerary[]): Itinerary[] {

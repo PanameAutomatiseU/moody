@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { planRoutes } from "@/lib/router";
+import { enrichBikeLegs } from "@/lib/enrich";
 import { withAvailability } from "@/lib/velib";
 import { isMoodId } from "@/lib/moods";
 import type { Place, RouteResult } from "@/lib/types";
@@ -103,14 +104,18 @@ export async function POST(request: Request) {
     );
   }
 
-  const weatherNote = await fetchWeatherNote(origin.lat, origin.lon);
+  // Enrich Vélib legs with real ORS cycling routes (+ re-rank), in parallel with weather.
+  const [ranked, weatherNote] = await Promise.all([
+    enrichBikeLegs([result.best, ...result.alternatives], mood),
+    fetchWeatherNote(origin.lat, origin.lon),
+  ]);
 
   const payload: RouteResult = {
     origin,
     destination,
     mood,
-    best: result.best,
-    alternatives: result.alternatives,
+    best: ranked[0],
+    alternatives: ranked.slice(1),
     weatherNote,
     generatedAt: new Date().toISOString(),
   };

@@ -35,9 +35,10 @@ Vélib’, Vélib’ intégral, à pied…) puis les **classe** selon les poids 
 - **Vélib’ temps réel** : disponibilité vélos/bornes via `opendata.paris.fr`
   (1517 stations), avec un **snapshot embarqué en fallback** si le flux est indisponible.
 - **Géocodage d'adresses** : Base Adresse Nationale (`api-adresse.data.gouv.fr`).
+- **Itinéraires vélo** : OpenRouteService (`cycling-regular`) — les segments Vélib suivent les vraies rues et **pistes cyclables** (profil `recommended` pour les moods posés, `fastest` pour Énergie/Pressé).
 - **Météo** : Open-Meteo (note contextuelle pluie/chaleur/froid).
 
-Aucune clé API requise : l'app fonctionne out-of-the-box.
+Seul OpenRouteService demande une clé (gratuite) ; sans elle, les segments Vélib retombent automatiquement sur une estimation à vol d'oiseau. Tout le reste fonctionne sans clé.
 
 ## Stack
 
@@ -52,6 +53,12 @@ Aucune clé API requise : l'app fonctionne out-of-the-box.
 ```bash
 pnpm install
 pnpm dev            # http://localhost:3000
+```
+
+Pour activer le routing vélo réel (sinon fallback à vol d'oiseau), ajoute ta clé OpenRouteService :
+
+```bash
+echo "ORS_API_KEY=ta_cle_openrouteservice" > .env.local
 ```
 
 Autres commandes :

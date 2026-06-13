@@ -28,6 +28,17 @@ Chaque mood est une **fonction de coût** sur l'itinéraire. Le moteur génère 
 éventail de trajets candidats (métro direct, métro + Vélib’, une-seule-ligne +
 Vélib’, Vélib’ intégral, à pied…) puis les **classe** selon les poids du mood actif.
 
+## Fonctionnalités
+
+- 🎚️ **Mood en pad 2D** — réglage continu *Vitesse ↔ Tranquillité* × *Souterrain ↔ Grand air* ; les 5 presets sont des ancres, et on peut se placer entre.
+- ⚖️ **Comparateur** des 5 ambiances pour un même trajet (durée / correspondances / prix).
+- 🚲 **Itinéraires vélo réels** (OpenRouteService) qui suivent les rues et pistes cyclables sur les segments Vélib.
+- 🕘 **Historique, lieux favoris & éco-streak CO₂** — mémoire navigateur (localStorage), zéro compte.
+- 🔗 **Lien partageable** (trajet + mood encodés dans l'URL) et 📍 **géolocalisation** (« ma position »).
+- 🌦️ **Routing adaptatif météo** — s'il pleut, Moody allège le Vélib et la marche.
+- 💬 **« Le mot de Moody »** — une explication du trajet avec personnalité, + comparatif 🚗 **vs voiture**.
+- 📱 **Installable** (PWA : manifest + icônes + thème).
+
 ## Données — réelles, temps réel, sans clé API
 
 - **Graphe métro/RER** : stations, ordre des lignes et temps inter-stations dérivés

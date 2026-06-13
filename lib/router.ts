@@ -1,5 +1,4 @@
-import type { Itinerary, Leg, LatLng, LineInfo, Mood, MoodId, Place } from "./types";
-import { MOODS } from "./moods";
+import type { Itinerary, Leg, LatLng, LineInfo, MoodWeights, Place } from "./types";
 import {
   CAR_CO2_PER_KM,
   METRO_CO2_PER_KM,
@@ -301,8 +300,8 @@ function aggregate(legs: Leg[]): Aggregate {
   };
 }
 
-export function scoreItinerary(a: Aggregate, mood: Mood): number {
-  const w = mood.weights;
+export function scoreItinerary(a: Aggregate, weights: MoodWeights): number {
+  const w = weights;
   return (
     w.time * a.durationMin +
     w.transfer * a.transfers +
@@ -345,7 +344,7 @@ function summarize(a: Aggregate, legs: Leg[]): { summary: string; tags: string[]
 function composeItinerary(
   rawLegs: Leg[],
   kind: string,
-  mood: Mood,
+  weights: MoodWeights,
   carCo2g: number,
 ): Itinerary | null {
   // Drop negligible walk hops (e.g. origin already at the Vélib/metro point).
@@ -370,20 +369,20 @@ function composeItinerary(
     carCo2g,
     summary,
     tags,
-    score: scoreItinerary(a, mood),
+    score: scoreItinerary(a, weights),
     kind,
   };
 }
 
-function assemble(rawLegs: Leg[], kind: string, mood: Mood, o: Place, d: Place): Itinerary | null {
+function assemble(rawLegs: Leg[], kind: string, weights: MoodWeights, o: Place, d: Place): Itinerary | null {
   const carCo2g = ((haversineM(o, d) * 1.4) / 1000) * CAR_CO2_PER_KM;
-  return composeItinerary(rawLegs, kind, mood, carCo2g);
+  return composeItinerary(rawLegs, kind, weights, carCo2g);
 }
 
 /** Recompute an itinerary's metrics & score from its (possibly ORS-enriched) legs,
  *  preserving the car-CO2 baseline and kind. */
-export function recomposeItinerary(it: Itinerary, moodId: MoodId): Itinerary {
-  return composeItinerary(it.legs, it.kind, MOODS[moodId], it.carCo2g) ?? it;
+export function recomposeItinerary(it: Itinerary, weights: MoodWeights): Itinerary {
+  return composeItinerary(it.legs, it.kind, weights, it.carCo2g) ?? it;
 }
 
 function dedupe(items: Itinerary[]): Itinerary[] {
@@ -403,16 +402,15 @@ export interface PlanOptions {
 export function planRoutes(
   origin: Place,
   destination: Place,
-  moodId: MoodId,
+  weights: MoodWeights,
   options: PlanOptions = {},
 ): { best: Itinerary; alternatives: Itinerary[] } | null {
-  const mood = MOODS[moodId];
   const ctx: PlanCtx = { velib: options.velib ?? VELIB_STATIONS };
   const candidates: Itinerary[] = [];
 
   const add = (legs: Leg[] | null, kind: string) => {
     if (!legs) return;
-    const it = assemble(legs, kind, mood, origin, destination);
+    const it = assemble(legs, kind, weights, origin, destination);
     if (it) candidates.push(it);
   };
 

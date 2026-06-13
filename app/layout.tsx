@@ -6,6 +6,12 @@ export const metadata: Metadata = {
   description:
     "Moody génère des itinéraires parisiens ultra-personnalisés selon votre mood : pressé, zen, sportif, flâneur ou économe. Métro, Vélib et marche, combinés pour vous.",
   applicationName: "Moody",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/apple-icon.png" }],
+  },
+  appleWebApp: { capable: true, title: "Moody", statusBarStyle: "default" },
   openGraph: {
     title: "Moody — votre trajet selon votre humeur",
     description:

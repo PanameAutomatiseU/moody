@@ -52,6 +52,23 @@ export interface Mood {
   weights: MoodWeights;
 }
 
+/** Position on the 2D mood pad. x: 0=vitesse → 1=tranquillité, y: 0=souterrain → 1=grand air. */
+export interface PadPosition {
+  x: number;
+  y: number;
+}
+
+/** A mood ready for the engine: a display identity + the cost weights. Produced
+ *  either from a preset or from a free 2D-pad position ("Sur-mesure"). */
+export interface ResolvedMood {
+  id: string;
+  label: string;
+  emoji: string;
+  accent: string;
+  weights: MoodWeights;
+  pad?: PadPosition;
+}
+
 export interface Itinerary {
   id: string;
   legs: Leg[];
@@ -74,7 +91,7 @@ export interface Itinerary {
 export interface RouteResult {
   origin: Place;
   destination: Place;
-  mood: MoodId;
+  mood: { id: string; label: string; emoji: string; accent: string };
   best: Itinerary;
   alternatives: Itinerary[];
   weatherNote: string | null;

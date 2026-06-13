@@ -1,4 +1,4 @@
-import type { Mood, MoodId } from "./types";
+import type { Mood, MoodId, MoodWeights, PadPosition, ResolvedMood } from "./types";
 
 /**
  * Each mood is a cost function over an itinerary. The router generates a
@@ -60,4 +60,75 @@ export const DEFAULT_MOOD: MoodId = "zen";
 
 export function isMoodId(x: string): x is MoodId {
   return x in MOODS;
+}
+
+// ---------------------------------------------------------------------------
+// Continuous mood — the 2D pad
+//   x: 0 = vitesse  → 1 = tranquillité
+//   y: 0 = souterrain (métro) → 1 = grand air (vélo / marche / surface)
+// ---------------------------------------------------------------------------
+
+const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+/** Where each preset sits on the pad (anchors shown on the pad + snap target). */
+export const MOOD_ANCHORS: Record<MoodId, PadPosition> = {
+  presse: { x: 0.08, y: 0.28 },
+  zen: { x: 0.86, y: 0.42 },
+  energie: { x: 0.42, y: 0.94 },
+  flaneur: { x: 0.6, y: 0.76 },
+  econome: { x: 0.74, y: 0.64 },
+};
+
+/** Map a pad position to continuous cost weights. */
+export function weightsFromPad(p: PadPosition): MoodWeights {
+  const x = clamp01(p.x);
+  const y = clamp01(p.y);
+  return {
+    time: lerp(1.0, 0.4, x),
+    transfer: lerp(3, 16, x),
+    walk: lerp(0.15, -0.55, y),
+    bike: lerp(0.15, -0.9, y),
+    underground: lerp(0, 0.9, y),
+    money: 0.4,
+  };
+}
+
+export type BikePref = "fastest" | "recommended";
+
+/** Derive the ORS cycling preference from the active weights (works for presets
+ *  and custom pad moods): a bike-leaning, surface-leaning mood wants pistes cyclables. */
+export function bikePreferenceFromWeights(w: MoodWeights): BikePref {
+  return w.bike <= -0.4 || w.underground >= 0.4 ? "recommended" : "fastest";
+}
+
+export function presetMood(id: MoodId): ResolvedMood {
+  const m = MOODS[id];
+  return { id: m.id, label: m.label, emoji: m.emoji, accent: m.accent, weights: m.weights, pad: MOOD_ANCHORS[id] };
+}
+
+export function customMood(p: PadPosition): ResolvedMood {
+  return {
+    id: "custom",
+    label: "Sur-mesure",
+    emoji: "🎚️",
+    accent: "#6D5AE6",
+    weights: weightsFromPad(p),
+    pad: { x: clamp01(p.x), y: clamp01(p.y) },
+  };
+}
+
+/** Nearest preset to a pad position — used to label a custom spot ("proche de Zen"). */
+export function nearestPreset(p: PadPosition): MoodId {
+  let best: MoodId = DEFAULT_MOOD;
+  let bestD = Infinity;
+  for (const id of Object.keys(MOOD_ANCHORS) as MoodId[]) {
+    const a = MOOD_ANCHORS[id];
+    const d = (a.x - p.x) ** 2 + (a.y - p.y) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = id;
+    }
+  }
+  return best;
 }

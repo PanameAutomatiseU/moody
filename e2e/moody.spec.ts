@@ -30,6 +30,9 @@ test.describe("Moody — end to end", () => {
     // The itinerary timeline shows the Vélib and the metro legs.
     await expect(best.getByText(/Vélib jusqu'à/)).toBeVisible();
     await expect(best.getByText(/→/).first()).toBeVisible();
+
+    // "Le mot de Moody" narration is present.
+    await expect(page.getByTestId("moody-word")).toBeVisible();
   });
 
   test("switching mood to Pressé re-routes to the faster multi-line option", async ({ page }) => {
@@ -64,5 +67,24 @@ test.describe("Moody — end to end", () => {
     await page.goto("/");
     await page.getByTestId("origin").fill("République Paris");
     await expect(page.getByTestId("origin-option").first()).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("mood pad anchor re-routes and keeps a valid itinerary", async ({ page }) => {
+    await page.goto("/");
+    await page.getByTestId("example").click();
+    await expect(page.getByTestId("best-itinerary")).toBeVisible({ timeout: 25_000 });
+    await page.getByTestId("anchor-energie").click();
+    await expect(page.getByTestId("best-itinerary")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("itinerary-duration")).toContainText("min");
+  });
+
+  test("comparator lists the five moods side by side", async ({ page }) => {
+    await page.goto("/");
+    await page.getByTestId("example").click();
+    await expect(page.getByTestId("best-itinerary")).toBeVisible({ timeout: 25_000 });
+    await page.getByTestId("compare-toggle").click();
+    const list = page.getByTestId("compare-list");
+    await expect(list).toBeVisible();
+    await expect.poll(async () => list.locator("button").count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(5);
   });
 });

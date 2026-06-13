@@ -1,17 +1,7 @@
-import type { Itinerary, MoodId } from "./types";
+import type { Itinerary, MoodWeights } from "./types";
 import { recomposeItinerary } from "./router";
 import { routeBike, type BikePreference, type BikeRoute } from "./ors";
 import { VELIB_OVERHEAD } from "./geo";
-
-// Énergie/Pressé veulent du direct ; les moods plus posés privilégient les
-// itinéraires cyclables (pistes), via la préférence "recommended" d'ORS.
-const PREFERENCE: Record<MoodId, BikePreference> = {
-  presse: "fastest",
-  energie: "fastest",
-  zen: "recommended",
-  flaneur: "recommended",
-  econome: "recommended",
-};
 
 const coordKey = (lat: number, lon: number) => `${lat.toFixed(5)},${lon.toFixed(5)}`;
 const legKey = (from: { lat: number; lon: number }, to: { lat: number; lon: number }, pref: string) =>
@@ -20,13 +10,15 @@ const legKey = (from: { lat: number; lon: number }, to: { lat: number; lon: numb
 /**
  * Replace the straight-line Vélib legs with real OpenRouteService cycling routes
  * (geometry following streets & pistes cyclables, plus real distance/duration),
- * then recompute totals and re-rank by the active mood. Identical Vélib legs
+ * then recompute totals and re-rank by the active weights. Identical Vélib legs
  * shared across itineraries are routed only once. When ORS is unavailable the
  * legs keep their estimates — the result is always valid.
  */
-export async function enrichBikeLegs(items: Itinerary[], moodId: MoodId): Promise<Itinerary[]> {
-  const preference = PREFERENCE[moodId];
-
+export async function enrichBikeLegs(
+  items: Itinerary[],
+  weights: MoodWeights,
+  preference: BikePreference,
+): Promise<Itinerary[]> {
   const routes = new Map<string, Promise<BikeRoute | null>>();
   for (const it of items) {
     for (const leg of it.legs) {
@@ -51,5 +43,5 @@ export async function enrichBikeLegs(items: Itinerary[], moodId: MoodId): Promis
     }
   }
 
-  return items.map((it) => recomposeItinerary(it, moodId)).sort((a, b) => a.score - b.score);
+  return items.map((it) => recomposeItinerary(it, weights)).sort((a, b) => a.score - b.score);
 }

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { Itinerary, Leg, Mood } from "@/lib/types";
-import { fmtArrival, fmtCost, fmtDistance, fmtDuration, co2SavingPct } from "@/lib/format";
+import type { Itinerary, Leg } from "@/lib/types";
+import { fmtArrival, fmtCost, fmtDistance, fmtDuration, co2SavingPct, carEstimate } from "@/lib/format";
+import { narrate } from "@/lib/narrate";
 import {
   BikeGlyph,
   LineBadge,
@@ -150,12 +151,13 @@ export function ItineraryView({
   selected: Itinerary;
   options: Itinerary[];
   onSelect: (id: string) => void;
-  mood: Mood;
+  mood: { label: string; emoji: string; accent: string };
   weatherNote: string | null;
 }) {
   const [now] = useState(() => new Date());
   const others = options.filter((o) => o.id !== selected.id);
   const saving = co2SavingPct(selected.co2g, selected.carCo2g);
+  const car = carEstimate(selected.carCo2g);
   const isTrain = selected.legs.some((l) => l.mode === "rer");
 
   return (
@@ -192,6 +194,7 @@ export function ItineraryView({
             <StatChip label={fmtCost(selected.costEuro)} />
             <StatChip label={fmtDistance(selected.distanceM)} />
             {saving > 0 && <StatChip label={`🌍 −${saving}% CO₂ vs voiture`} />}
+            <StatChip label={`🚗 voiture ~${car.min} min · ~${car.euro} €`} />
           </div>
           {selected.tags.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -206,6 +209,10 @@ export function ItineraryView({
               ))}
             </div>
           )}
+          <p className="mt-3 rounded-xl bg-[color:var(--color-paper)] px-3 py-2 text-[13.5px] leading-snug text-[color:var(--color-ink)]" data-testid="moody-word">
+            <span aria-hidden>💬 </span>
+            {narrate(selected, mood.label)}
+          </p>
         </div>
 
         <div className="px-5 pt-4 pb-5">

@@ -30,7 +30,7 @@ Vélib’, Vélib’ intégral, à pied…) puis les **classe** selon les poids 
 
 ## Fonctionnalités
 
-- 🎚️ **Mood en pad 2D** — réglage continu *Vitesse ↔ Tranquillité* × *Souterrain ↔ Grand air* ; les 5 presets sont des ancres, et on peut se placer entre.
+- 🎭 **5 moods** — Pressé, Zen, Énergie, Flâneur, Économe ; chaque mood réécrit la fonction de coût du trajet.
 - ⚖️ **Comparateur** des 5 ambiances pour un même trajet (durée / correspondances / prix).
 - 🚲 **Itinéraires vélo réels** (OpenRouteService) qui suivent les rues et pistes cyclables sur les segments Vélib.
 - 🕘 **Historique, lieux favoris & éco-streak CO₂** — mémoire navigateur (localStorage), zéro compte.

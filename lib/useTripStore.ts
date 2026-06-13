@@ -13,7 +13,6 @@ export interface RecentTrip {
   summary: string;
   durationMin: number;
   co2SavedG: number;
-  pad?: { x: number; y: number };
   ts: number;
 }
 

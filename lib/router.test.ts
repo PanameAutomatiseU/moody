@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { planRoutes } from "./router";
-import { MOODS, MOOD_LIST, weightsFromPad } from "./moods";
+import { MOODS, MOOD_LIST } from "./moods";
 import type { MoodWeights, Place } from "./types";
 
 // Representative coordinates for the canonical demo trip.
@@ -58,20 +58,6 @@ describe("planRoutes — 20e → Boulogne", () => {
     const all = [r.best, ...r.alternatives];
     const single = all.find((it) => it.linesUsed.length === 1 && it.bikeMin > 0);
     expect(single, "expected a '1 line + Vélib' itinerary").toBeTruthy();
-  });
-
-  it("pad: a 'vitesse' setting is never slower than a 'tranquillité' setting", () => {
-    const vite = planRoutes(MAIRIE_20E, BOULOGNE, weightsFromPad({ x: 0, y: 0.3 }))!;
-    const calme = planRoutes(MAIRIE_20E, BOULOGNE, weightsFromPad({ x: 1, y: 0.3 }))!;
-    expect(vite.best.durationMin).toBeLessThanOrEqual(calme.best.durationMin + 0.01);
-  });
-
-  it("pad: a 'grand air' setting uses at least as much vélo/marche as 'souterrain'", () => {
-    const air = planRoutes(MAIRIE_20E, BOULOGNE, weightsFromPad({ x: 0.5, y: 1 }))!;
-    const sous = planRoutes(MAIRIE_20E, BOULOGNE, weightsFromPad({ x: 0.5, y: 0 }))!;
-    expect(air.best.bikeMin + air.best.walkMin).toBeGreaterThanOrEqual(
-      sous.best.bikeMin + sous.best.walkMin - 0.01,
-    );
   });
 
   it("prints a human-readable comparison", () => {

@@ -3,14 +3,14 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LocationField } from "@/components/LocationField";
-import { MoodPad } from "@/components/MoodPad";
+import { MoodPicker } from "@/components/MoodPicker";
 import { Comparator } from "@/components/Comparator";
 import { ItineraryView } from "@/components/ItineraryView";
 import { PinGlyph } from "@/components/icons";
-import { DEFAULT_MOOD, customMood, isMoodId, presetMood } from "@/lib/moods";
+import { DEFAULT_MOOD, MOODS, isMoodId } from "@/lib/moods";
 import { buildShareParams, parseShareParams } from "@/lib/share";
 import { useTripStore } from "@/lib/useTripStore";
-import type { Itinerary, Place, ResolvedMood, RouteResult } from "@/lib/types";
+import type { Itinerary, MoodId, Place, RouteResult } from "@/lib/types";
 
 const MapView = dynamic(() => import("@/components/MapView"), {
   ssr: false,
@@ -39,7 +39,7 @@ const short = (label: string) => label.split(",")[0];
 export default function Home() {
   const [origin, setOrigin] = useState<Place | null>(null);
   const [destination, setDestination] = useState<Place | null>(null);
-  const [mood, setMood] = useState<ResolvedMood>(() => presetMood(DEFAULT_MOOD));
+  const [mood, setMood] = useState<MoodId>(DEFAULT_MOOD);
   const [result, setResult] = useState<RouteResult | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -48,11 +48,12 @@ export default function Home() {
   const isDesktop = useIsDesktop();
   const store = useTripStore();
 
+  const activeMood = MOODS[mood];
   const options: Itinerary[] = result ? [result.best, ...result.alternatives] : [];
   const selected = options.find((o) => o.id === selectedId) ?? result?.best ?? null;
 
   const search = useCallback(
-    async (o: Place | null, d: Place | null, m: ResolvedMood) => {
+    async (o: Place | null, d: Place | null, moodId: MoodId) => {
       if (!o || !d) return;
       setLoading(true);
       setError(null);
@@ -60,7 +61,7 @@ export default function Home() {
         const res = await fetch("/api/route", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ origin: o, destination: d, mood: m }),
+          body: JSON.stringify({ origin: o, destination: d, mood: moodId }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -69,21 +70,21 @@ export default function Home() {
           return;
         }
         const rr = data as RouteResult;
+        const m = MOODS[moodId];
         setResult(rr);
         setSelectedId(rr.best.id);
         store.addRecent({
           origin: o,
           destination: d,
-          moodId: m.id,
+          moodId,
           moodLabel: m.label,
           moodEmoji: m.emoji,
           summary: rr.best.summary,
           durationMin: rr.best.durationMin,
           co2SavedG: Math.max(0, rr.best.carCo2g - rr.best.co2g),
-          pad: m.pad,
         });
         if (typeof window !== "undefined") {
-          window.history.replaceState(null, "", `?${buildShareParams(o, d, m)}`);
+          window.history.replaceState(null, "", `?${buildShareParams(o, d, moodId)}`);
         }
       } catch {
         setError("Impossible de contacter le serveur. Réessaie.");
@@ -101,9 +102,7 @@ export default function Home() {
     if (booted.current) return;
     booted.current = true;
     const parsed = parseShareParams(new URLSearchParams(window.location.search));
-    let m = mood;
-    if (parsed.pad) m = customMood(parsed.pad);
-    else if (parsed.moodId && isMoodId(parsed.moodId)) m = presetMood(parsed.moodId);
+    const m: MoodId = parsed.moodId && isMoodId(parsed.moodId) ? parsed.moodId : mood;
     /* eslint-disable react-hooks/set-state-in-effect -- one-time deep-link hydration on mount */
     setMood(m);
     if (parsed.origin) setOrigin(parsed.origin);
@@ -113,7 +112,7 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function commitMood(m: ResolvedMood) {
+  function commitMood(m: MoodId) {
     setMood(m);
     if (origin && destination) search(origin, destination, m);
   }
@@ -135,8 +134,8 @@ export default function Home() {
     else setDestination(place);
   }
 
-  function replay(o: Place, d: Place, moodId: string, pad?: { x: number; y: number }) {
-    const m = pad ? customMood(pad) : isMoodId(moodId) ? presetMood(moodId) : presetMood(DEFAULT_MOOD);
+  function replay(o: Place, d: Place, moodId: string) {
+    const m: MoodId = isMoodId(moodId) ? moodId : DEFAULT_MOOD;
     setOrigin(o);
     setDestination(d);
     setMood(m);
@@ -152,7 +151,7 @@ export default function Home() {
   }
 
   const map = (
-    <MapView itinerary={selected} origin={origin} destination={destination} accent={mood.accent} />
+    <MapView itinerary={selected} origin={origin} destination={destination} accent={activeMood.accent} />
   );
 
   return (
@@ -161,7 +160,7 @@ export default function Home() {
         <header className="mb-6">
           <div className="flex items-baseline gap-1.5">
             <h1 className="text-[26px] font-semibold tracking-tight">Moody</h1>
-            <span className="h-2 w-2 rounded-full" style={{ background: mood.accent }} />
+            <span className="h-2 w-2 rounded-full" style={{ background: activeMood.accent }} />
           </div>
           <p className="mt-1 text-[15px] text-[color:var(--color-ink-soft)]">
             Votre trajet à Paris, selon votre humeur.
@@ -222,7 +221,7 @@ export default function Home() {
           )}
 
           <div className="mt-4">
-            <MoodPad value={mood} onChange={setMood} onCommit={commitMood} />
+            <MoodPicker value={mood} onChange={commitMood} />
           </div>
 
           <button
@@ -231,7 +230,7 @@ export default function Home() {
             disabled={!origin || !destination || loading}
             data-testid="search"
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-[15px] font-semibold text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
-            style={{ background: mood.accent }}
+            style={{ background: activeMood.accent }}
           >
             {loading ? "Calcul en cours…" : "Trouver mon itinéraire"}
           </button>
@@ -250,8 +249,8 @@ export default function Home() {
           <Comparator
             origin={origin}
             destination={destination}
-            activeMoodId={mood.id}
-            onPick={(id) => commitMood(presetMood(isMoodId(id) ? id : DEFAULT_MOOD))}
+            activeMoodId={mood}
+            onPick={(id) => commitMood(isMoodId(id) ? id : DEFAULT_MOOD)}
           />
         </div>
 
@@ -293,7 +292,7 @@ export default function Home() {
                 selected={selected}
                 options={options}
                 onSelect={setSelectedId}
-                mood={mood}
+                mood={activeMood}
                 weatherNote={result.weatherNote}
               />
             </>
@@ -302,7 +301,7 @@ export default function Home() {
             <div className="rounded-3xl border border-dashed border-[color:var(--color-hair)] px-5 py-10 text-center">
               <p className="text-[15px] font-medium">Dis-moi ton humeur du moment</p>
               <p className="mx-auto mt-1 max-w-xs text-sm text-[color:var(--color-ink-soft)]">
-                Place le curseur entre vitesse et tranquillité, souterrain et grand air — Moody compose le trajet.
+                Choisis un mood — du plus pressé au plus flâneur — et Moody compose le trajet qui te ressemble.
               </p>
             </div>
           )}
@@ -318,7 +317,7 @@ export default function Home() {
                 <button
                   key={r.id}
                   type="button"
-                  onClick={() => replay(r.origin, r.destination, r.moodId, r.pad)}
+                  onClick={() => replay(r.origin, r.destination, r.moodId)}
                   className="flex items-center justify-between gap-3 rounded-xl border border-[color:var(--color-hair)] bg-white px-3.5 py-2.5 text-left transition-colors hover:border-[color:var(--color-ink)]"
                 >
                   <span className="flex min-w-0 items-center gap-2">

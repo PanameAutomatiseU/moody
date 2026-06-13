@@ -43,37 +43,15 @@ function isPlace(x: unknown): x is Place {
   );
 }
 
-const WEIGHT_KEYS = ["time", "transfer", "walk", "bike", "underground", "money"] as const;
-function asWeights(x: unknown): MoodWeights | null {
-  if (!x || typeof x !== "object") return null;
-  const o = x as Record<string, unknown>;
-  const out = {} as MoodWeights;
-  for (const k of WEIGHT_KEYS) {
-    const v = o[k];
-    if (typeof v !== "number" || !Number.isFinite(v)) return null;
-    out[k] = v;
-  }
-  return out;
-}
-
-/** Resolve the incoming `mood` field: a preset id, or a custom { weights, … }. */
+/** Resolve the incoming `mood` field: a preset id (string) or an object { id }. */
 function resolveMood(m: unknown): ResolvedMood | null {
-  if (typeof m === "string" && isMoodId(m)) return presetMood(m);
-  if (m && typeof m === "object") {
-    const o = m as Record<string, unknown>;
-    if (typeof o.id === "string" && isMoodId(o.id) && !o.weights) return presetMood(o.id);
-    const weights = asWeights(o.weights);
-    if (weights) {
-      return {
-        id: typeof o.id === "string" ? o.id : "custom",
-        label: typeof o.label === "string" ? o.label : "Sur-mesure",
-        emoji: typeof o.emoji === "string" ? o.emoji : "🎚️",
-        accent: typeof o.accent === "string" ? o.accent : "#6D5AE6",
-        weights,
-      };
-    }
-  }
-  return null;
+  const id =
+    typeof m === "string"
+      ? m
+      : m && typeof m === "object" && typeof (m as { id?: unknown }).id === "string"
+        ? (m as { id: string }).id
+        : null;
+  return id && isMoodId(id) ? presetMood(id) : null;
 }
 
 function rainAdjust(w: MoodWeights): MoodWeights {

@@ -69,15 +69,6 @@ test.describe("Moody — end to end", () => {
     await expect(page.getByTestId("origin-option").first()).toBeVisible({ timeout: 15_000 });
   });
 
-  test("mood pad anchor re-routes and keeps a valid itinerary", async ({ page }) => {
-    await page.goto("/");
-    await page.getByTestId("example").click();
-    await expect(page.getByTestId("best-itinerary")).toBeVisible({ timeout: 25_000 });
-    await page.getByTestId("anchor-energie").click();
-    await expect(page.getByTestId("best-itinerary")).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByTestId("itinerary-duration")).toContainText("min");
-  });
-
   test("comparator lists the five moods side by side", async ({ page }) => {
     await page.goto("/");
     await page.getByTestId("example").click();
